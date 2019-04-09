@@ -1,0 +1,91 @@
+Index: clients/src/main/kotlin/com/gitcoins/webserver/GitWebHookController.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.gitcoins.webserver\n\nimport com.gitcoins.flows.CreateKeyFlow\nimport com.gitcoins.flows.PullRequestReviewEventFlow\nimport com.gitcoins.flows.PushEventFlow\nimport com.gitcoins.jsonparser.ResponseParser\nimport net.corda.core.messaging.startTrackedFlow\nimport net.corda.core.utilities.getOrThrow\nimport org.slf4j.LoggerFactory\nimport org.springframework.http.HttpStatus\nimport org.springframework.http.ResponseEntity\nimport org.springframework.web.bind.annotation.PostMapping\nimport org.springframework.web.bind.annotation.RequestBody\nimport org.springframework.web.bind.annotation.RequestMapping\nimport org.springframework.web.bind.annotation.RestController\n\n/**\n * Endpoints to be called by GitHub webhooks.\n */\n@RestController\n@RequestMapping(\"/api/git/\")\nclass GitWebHookController(rpc: NodeRPCConnection) {\n\n    companion object {\n        private val logger = LoggerFactory.getLogger(RestController::class.java)\n    }\n\n    private val proxy = rpc.proxy\n\n    /**\n     * End point that should be called by a 'pull_request_review_comments' webhook.\n     */\n    @PostMapping(value = [ \"/create-key\" ])\n    fun createKey(@RequestBody msg : String) : ResponseEntity<String> {\n\n        val isCreate = ResponseParser.verifyCreateKey(msg)\n        if (!isCreate) {\n            return ResponseEntity.badRequest().body(\"Invalid pr comment. Please comment 'createKey'.\")\n        }\n\n        val gitUserName =  ResponseParser.extractGitHubUsername(\".*comment.*user.*login.*\", msg)\n        if (gitUserName == null) {\n            return ResponseEntity.badRequest().body(\"Github username must not be null.\\n\")\n        }\n\n        return try {\n            proxy.startTrackedFlow(:: CreateKeyFlow, gitUserName).returnValue.getOrThrow()\n            ResponseEntity.status(HttpStatus.CREATED).body(\"New public key generated for github user: $gitUserName\")\n        } catch (ex: Throwable) {\n            ResponseEntity.badRequest().body(ex.message!!)\n        }\n    }\n\n\n    /**\n     * End point that should be called by a 'push' webhook.\n     */\n    @PostMapping(value = [ \"/push-event\" ])\n    fun initPushFlow(@RequestBody msg : String) : ResponseEntity<String> {\n\n        val gitUserName =  ResponseParser.extractGitHubUsername(\".*pusher.*name.*\", msg)\n        if (gitUserName == null) {\n            return ResponseEntity.badRequest().body(\"Github username must not be null.\\n\")\n        }\n\n        return try {\n            proxy.startTrackedFlow(:: PushEventFlow, gitUserName).returnValue.getOrThrow()\n            ResponseEntity.status(HttpStatus.CREATED).body(\"New push event on the repo by: $gitUserName\")\n        } catch (ex: Throwable) {\n            ResponseEntity.badRequest().body(ex.message!!)\n        }\n    }\n\n\n    /**\n     * End point that should be called by a 'pull_request_review' webhook.\n     */\n    @PostMapping(value = [ \"/pr-event\" ])\n    fun initPRFlow(@RequestBody msg : String) : ResponseEntity<String> {\n\n        val gitUserName =  ResponseParser.extractGitHubUsername(\".*review.*user.*login.*\", msg)\n        if (gitUserName == null) {\n            return ResponseEntity.badRequest().body(\"Github username must not be null.\\n\")\n        }\n\n        return try {\n            proxy.startTrackedFlow(:: PullRequestReviewEventFlow, gitUserName).returnValue.getOrThrow()\n            ResponseEntity.status(HttpStatus.CREATED).body(\"New pull request event on the repo by: $gitUserName\\n\")\n            //Initiate issue tokens flow\n        } catch (ex: Throwable) {\n            ResponseEntity.badRequest().body(ex.message!!)\n        }\n    }\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- clients/src/main/kotlin/com/gitcoins/webserver/GitWebHookController.kt	(date 1554797885000)
++++ clients/src/main/kotlin/com/gitcoins/webserver/GitWebHookController.kt	(date 1554800278000)
+@@ -38,16 +38,16 @@
+             return ResponseEntity.badRequest().body("Invalid pr comment. Please comment 'createKey'.")
+         }
+ 
+-        val gitUserName =  ResponseParser.extractGitHubUsername(".*comment.*user.*login.*", msg)
+-        if (gitUserName == null) {
+-            return ResponseEntity.badRequest().body("Github username must not be null.\n")
+-        }
++        val gitUserName: String? = ResponseParser.extractGitHubUsername(".*comment.*user.*login.*", msg)
+ 
+-        return try {
+-            proxy.startTrackedFlow(:: CreateKeyFlow, gitUserName).returnValue.getOrThrow()
+-            ResponseEntity.status(HttpStatus.CREATED).body("New public key generated for github user: $gitUserName")
+-        } catch (ex: Throwable) {
+-            ResponseEntity.badRequest().body(ex.message!!)
++        return when(gitUserName) {
++            null -> ResponseEntity.badRequest().body("Github username must not be null.\n")
++            else -> try {
++                proxy.startTrackedFlow(::CreateKeyFlow, gitUserName).returnValue.getOrThrow()
++                ResponseEntity.status(HttpStatus.CREATED).body("New public key generated for github user: $gitUserName")
++            } catch (ex: Throwable) {
++                ResponseEntity.badRequest().body(ex.message!!)
++            }
+         }
+     }
+ 
+@@ -58,16 +58,16 @@
+     @PostMapping(value = [ "/push-event" ])
+     fun initPushFlow(@RequestBody msg : String) : ResponseEntity<String> {
+ 
+-        val gitUserName =  ResponseParser.extractGitHubUsername(".*pusher.*name.*", msg)
+-        if (gitUserName == null) {
+-            return ResponseEntity.badRequest().body("Github username must not be null.\n")
+-        }
++        val gitUserName: String? = ResponseParser.extractGitHubUsername(".*comment.*user.*login.*", msg)
+ 
+-        return try {
+-            proxy.startTrackedFlow(:: PushEventFlow, gitUserName).returnValue.getOrThrow()
+-            ResponseEntity.status(HttpStatus.CREATED).body("New push event on the repo by: $gitUserName")
+-        } catch (ex: Throwable) {
+-            ResponseEntity.badRequest().body(ex.message!!)
++         return when(gitUserName) {
++            null -> ResponseEntity.badRequest().body("Github username must not be null.\n")
++            else -> try {
++                proxy.startTrackedFlow(::PushEventFlow, gitUserName).returnValue.getOrThrow()
++                ResponseEntity.status(HttpStatus.CREATED).body("New public key generated for github user: $gitUserName")
++            } catch (ex: Throwable) {
++                ResponseEntity.badRequest().body(ex.message!!)
++            }
+         }
+     }
+ 
+@@ -78,17 +78,18 @@
+     @PostMapping(value = [ "/pr-event" ])
+     fun initPRFlow(@RequestBody msg : String) : ResponseEntity<String> {
+ 
+-        val gitUserName =  ResponseParser.extractGitHubUsername(".*review.*user.*login.*", msg)
+-        if (gitUserName == null) {
+-            return ResponseEntity.badRequest().body("Github username must not be null.\n")
+-        }
++        val gitUserName: String? = ResponseParser.extractGitHubUsername(".*comment.*user.*login.*", msg)
+ 
+-        return try {
+-            proxy.startTrackedFlow(:: PullRequestReviewEventFlow, gitUserName).returnValue.getOrThrow()
+-            ResponseEntity.status(HttpStatus.CREATED).body("New pull request event on the repo by: $gitUserName\n")
+-            //Initiate issue tokens flow
+-        } catch (ex: Throwable) {
+-            ResponseEntity.badRequest().body(ex.message!!)
++        return when(gitUserName) {
++            null -> ResponseEntity.badRequest().body("Github username must not be null.\n")
++            else -> try {
++                proxy.startTrackedFlow(::PullRequestReviewEventFlow, gitUserName).returnValue.getOrThrow()
++                ResponseEntity.status(HttpStatus.CREATED).body("New public key generated for github user: $gitUserName")
++            } catch (ex: Throwable) {
++                ResponseEntity.badRequest().body(ex.message!!)
++            }
+         }
+     }
++
++    fun initialiseFlow(msg: String, gitUseName: String?)
+ }
+\ No newline at end of file
