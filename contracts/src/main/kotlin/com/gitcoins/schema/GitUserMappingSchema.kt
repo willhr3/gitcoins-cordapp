@@ -2,7 +2,10 @@ package com.gitcoins.schema
 
 import net.corda.core.schemas.MappedSchema
 import java.io.Serializable
-import javax.persistence.*
+import javax.persistence.Column
+import javax.persistence.Entity
+import javax.persistence.Id
+import javax.persistence.Table
 
 object GitUserMappingSchema
 
@@ -14,6 +17,7 @@ object GitUserMappingSchemaV1 : MappedSchema (
     @Entity
     @Table(name="GUK")
     class GitUserKeys(
+            @Id
             @Column(name="git_user_name", nullable = false)
             var gitUserName: String,
 
