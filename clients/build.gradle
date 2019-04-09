@@ -46,5 +46,5 @@ task runTemplateClient(type: JavaExec, dependsOn: assemble) {
 
 task runPartyAServer(type: JavaExec, dependsOn: jar) {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'net.corda.server.ServerKt'
+    main = 'com.gitcoins.webserver.ServerKt'
 }
